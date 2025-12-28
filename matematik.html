@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yapay Zekâ & Matematik: Sayını Tahmin Ediyorum</title>
+  <style>
+    :root { --b:#0b1220; --g:#e8eefc; --p:#2b62ff; --c:#111827; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0b1220; color:var(--g); }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 20px; }
+    .card { background:#111a2e; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    p { line-height:1.5; margin: 10px 0; color: rgba(232,238,252,.92); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    button { border:0; border-radius:12px; padding:10px 14px; font-weight:600; cursor:pointer; }
+    .primary { background: var(--p); color: white; }
+    .ghost { background: rgba(255,255,255,.08); color: var(--g); }
+    .danger { background: rgba(255,60,60,.18); color:#ffd0d0; border:1px solid rgba(255,60,60,.35); }
+    .badge { display:inline-block; padding:6px 10px; border-radius:999px; background: rgba(255,255,255,.08); font-size:12px; }
+    .box { background: rgba(255,255,255,.06); border:1px dashed rgba(255,255,255,.2); padding:12px; border-radius:12px; margin-top:12px; }
+    .big { font-size: 30px; font-weight:800; }
+    .muted { color: rgba(232,238,252,.72); font-size: 13px; }
+    .list { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width:520px){ .list{ grid-template-columns: 1fr; } }
+    a { color:#9db6ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Yapay Zekâ & Matematik 🎯</h1>
+      <div class="badge" id="stepBadge">Hazırlık</div>
+
+      <div id="screenIntro">
+        <p>
+          1 ile 31 arasında bir sayı tut. Ben de birkaç <b>Evet/Hayır</b> sorusuyla sayını tahmin edeceğim.
+          Bu aslında matematiksel bir yöntem: <b>ikili (binary) mantık</b>.
+        </p>
+        <div class="box">
+          <div class="muted">Kurallar</div>
+          <ul>
+            <li>Sayıyı <b>değiştirme</b>.</li>
+            <li>Her soruya sadece <b>Evet</b> veya <b>Hayır</b> seç.</li>
+          </ul>
+        </div>
+        <div class="row">
+          <button class="primary" onclick="start()">Başla</button>
+        </div>
+      </div>
+
+      <div id="screenQuestion" style="display:none;">
+        <p id="qText"></p>
+
+        <div class="box">
+          <div class="muted">İpucu</div>
+          <div id="hint"></div>
+        </div>
+
+        <div class="row">
+          <button class="primary" onclick="answer(true)">Evet</button>
+          <button class="ghost" onclick="answer(false)">Hayır</button>
+          <button class="danger" onclick="resetAll()">Sıfırla</button>
+        </div>
+
+        <div class="box">
+          <div class="muted">İlerleme</div>
+          <div id="progress"></div>
+        </div>
+      </div>
+
+      <div id="screenResult" style="display:none;">
+        <p>Tahminim:</p>
+        <div class="big" id="resultNum"></div>
+
+        <div class="box">
+          <div class="muted">Bu “yapay zekâ” mı?</div>
+          <p style="margin-top:8px;">
+            Burada gerçek bir “öğrenen” yapay zekâ yok; <b>algoritma</b> var.
+            Ama yapay zekâ sistemleri de temelde böyle adım adım karar veren matematiksel yapılar kullanır.
+          </p>
+          <p class="muted">
+            Öğretmen notu: Bu etkinlik, “AI = büyü” algısını kırar; arkasında matematik olduğunu gösterir.
+          </p>
+        </div>
+
+        <div class="row">
+          <button class="primary" onclick="start()">Tekrar Oyna</button>
+          <button class="ghost" onclick="showExplain()">Nasıl çalıştı?</button>
+        </div>
+
+        <div id="explain" class="box" style="display:none;">
+          <div class="muted">Kısa açıklama</div>
+          <p style="margin-top:8px;">
+            1–31 arası sayılar 5 bit ile yazılabilir (ör. 13 = 01101).
+            Sorduğum sorular, sayının içinde belirli “bit”lerin olup olmadığını kontrol eder.
+            Evet dediğin her sorunun değeri toplanınca sayı bulunur.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <p class="muted" style="margin-top:10px;">
+      QR için: Bu sayfayı bir URL’ye koy → QR kodu o URL’ye yönlendir.
+    </p>
+  </div>
+
+  <script>
+    // 1..31 için 5 soru (1,2,4,8,16 bitleri)
+    const weights = [16, 8, 4, 2, 1];
+    let idx = 0;
+    let sum = 0;
+    let yesList = [];
+
+    function start(){
+      idx = 0;
+      sum = 0;
+      yesList = [];
+      document.getElementById("stepBadge").textContent = "Soru 1 / 5";
+      show("screenQuestion");
+      nextQuestion();
+    }
+
+    function nextQuestion(){
+      const w = weights[idx];
+      const nums = [];
+      for (let n=1; n<=31; n++){
+        if ((n & w) !== 0) nums.push(n);
+      }
+      document.getElementById("qText").innerHTML =
+        `Tuttuğun sayı şu listede var mı? <br><br><b>${nums.join(", ")}</b>`;
+      document.getElementById("hint").textContent =
+        `Bu soru, sayının içinde ${w} değerinin “var mı?” kontrolünü yapıyor.`;
+      document.getElementById("progress").textContent =
+        `Şu ana kadar “Evet” dediğin değerler: ${yesList.length ? yesList.join(" + ") : "—"} (Toplam: ${sum})`;
+      document.getElementById("stepBadge").textContent = `Soru ${idx+1} / 5`;
+    }
+
+    function answer(isYes){
+      const w = weights[idx];
+      if (isYes){
+        sum += w;
+        yesList.push(w);
+      }
+      idx++;
+      if (idx >= weights.length){
+        show("screenResult");
+        document.getElementById("resultNum").textContent = sum || 1; // teorik olarak 0 çıkmamalı; güvenlik
+        // 0 çıkarsa (tüm hayır) aslında sayı 0 olurdu, ama aralık 1..31 olduğu için bunu 1'e bağlamıyoruz
+        // Not: Bu oyunda 1..31 aralığında tüm hayır olamaz; 1 listesinde 1,3,5... var.
+      } else {
+        nextQuestion();
+      }
+    }
+
+    function showExplain(){
+      const el = document.getElementById("explain");
+      el.style.display = (el.style.display === "none") ? "block" : "none";
+    }
+
+    function resetAll(){
+      idx = 0;
+      sum = 0;
+      yesList = [];
+      show("screenIntro");
+      document.getElementById("stepBadge").textContent = "Hazırlık";
+      document.getElementById("explain").style.display = "none";
+    }
+
+    function show(id){
+      ["screenIntro","screenQuestion","screenResult"].forEach(x=>{
+        document.getElementById(x).style.display = (x===id) ? "block" : "none";
+      });
+      if(id !== "screenResult"){
+        document.getElementById("explain").style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>
